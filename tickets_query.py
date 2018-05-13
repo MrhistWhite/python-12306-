@@ -99,7 +99,8 @@ def trains_info(mapping_to_name, trans_list, type_code_dict):
 
         response_price_info = requests.get(url_price_info).json()['data']
         keys_list = response_price_info.keys()
-
+        
+        #经过对网页源代码的统计分析，发现火车票信息内隐藏的规律。以下为特定位置对应的车座信息
         trains_info_values = [
             trains_available[3], #车次
             '\n'.join([mapping_to_name[trains_available[6]], mapping_to_name[trains_available[7]]]), #出发及到达车站
@@ -121,11 +122,12 @@ def trains_info(mapping_to_name, trans_list, type_code_dict):
 
         for i in range(len(trains_info_values)):
             if trains_info_values[i] == '':
-                trains_info_values[i] = '--'
+                trains_info_values[i] = '--'    #对空白信息的填补
         if 'P' in keys_list and not 'A9' in keys_list:
             trains_info_values[4] = '\n'.join([trains_info_values[4],  response_price_info['P']])
         elif 'A9' in keys_list and not 'P' in keys_list:
-            trains_info_values[4] = '\n'.join([trains_info_values[4],  response_price_info['A9']])
+            trains_info_values[4] = '\n'.join([trains_info_values[4],  response_price_info['A9']])      
+            #此处由于无法对火车票网页内的全部其他类型的车座信息进行统计，故作判断直接显示其他车座的类型
 
         trains_info.append([
             trains_info_values[0],
