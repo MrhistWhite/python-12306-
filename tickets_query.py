@@ -3,7 +3,7 @@
 """命令行火车票查看器
 
 Usage:
-    tickets.py <type> <start> <end> <date>
+    tickets_query.py <type> <start> <end> <date>
 
 Options:
     -h,--help   显示帮助菜单
@@ -95,10 +95,10 @@ def trains_info(mapping_to_name, trans_list, type_code_dict):
                          '&train_date={}'.format(
             trains_available[2], trains_available[16], trains_available[17], trains_available[-2], trans_list[3]
         )
-        #提取票价查询页面
+        #提取票价查询网页信息
 
         response_price_info = requests.get(url_price_info).json()['data']
-        keys_list = response_price_info.keys()
+        keys_list = response_price_info.keys()      #返回车票价格的网页信息的键值
         
         #经过对网页源代码的统计分析，发现火车票信息内隐藏的规律。以下为特定位置对应的车座信息
         trains_info_values = [
@@ -127,25 +127,26 @@ def trains_info(mapping_to_name, trans_list, type_code_dict):
             trains_info_values[4] = '\n'.join([trains_info_values[4],  response_price_info['P']])
         elif 'A9' in keys_list and not 'P' in keys_list:
             trains_info_values[4] = '\n'.join([trains_info_values[4],  response_price_info['A9']])      
-            #此处由于无法对火车票网页内的全部其他类型的车座信息进行统计，故作判断直接显示其他车座的类型
+            #在商务座/特等座一栏包含两个键，因此这里预先进行判断提取价格信息
 
         trains_info.append([
             trains_info_values[0],
             trains_info_values[1],
             trains_info_values[2],
             trains_info_values[3],
-            trains_info_values[4],
-            #以下分别为不同座位对应的票价
-            '\n'.join([trains_info_values[5],  response_price_info['M']]) if 'M' in keys_list else trains_info_values[5],
-            '\n'.join([trains_info_values[6],  response_price_info['O']]) if 'O' in keys_list else trains_info_values[6],
-            '\n'.join([trains_info_values[7],  response_price_info['A6']]) if 'A6' in keys_list else trains_info_values[7],
-            '\n'.join([trains_info_values[8],  response_price_info['A4']]) if 'A4' in keys_list else trains_info_values[8],
-            '\n'.join([trains_info_values[9],  response_price_info['F']]) if 'F' in keys_list else trains_info_values[9],
-            '\n'.join([trains_info_values[10],  response_price_info['A3']]) if 'A3' in keys_list else trains_info_values[10],
-            '\n'.join([trains_info_values[11],  response_price_info['A2']]) if 'A2' in keys_list else trains_info_values[11],
-            '\n'.join([trains_info_values[12],  response_price_info['A1']]) if 'A1' in keys_list else trains_info_values[12],
-            '\n'.join([trains_info_values[13],  response_price_info['WZ']]) if 'WZ' in keys_list else trains_info_values[13],
+            trains_info_values[4],      #商务座/特等座票价
+            #以下分别为不同座位的剩余座位数以及对应的票价。由于对应座位不一定有价格信息，所以此处做了特殊处理
+            '\n'.join([trains_info_values[5],  response_price_info['M']]) if 'M' in keys_list else trains_info_values[5],   #一等座票价
+            '\n'.join([trains_info_values[6],  response_price_info['O']]) if 'O' in keys_list else trains_info_values[6],   #二等座票价
+            '\n'.join([trains_info_values[7],  response_price_info['A6']]) if 'A6' in keys_list else trains_info_values[7], #高级软卧票价
+            '\n'.join([trains_info_values[8],  response_price_info['A4']]) if 'A4' in keys_list else trains_info_values[8], #软卧票价
+            '\n'.join([trains_info_values[9],  response_price_info['F']]) if 'F' in keys_list else trains_info_values[9],   #动卧票价
+            '\n'.join([trains_info_values[10],  response_price_info['A3']]) if 'A3' in keys_list else trains_info_values[10],#硬卧票价
+            '\n'.join([trains_info_values[11],  response_price_info['A2']]) if 'A2' in keys_list else trains_info_values[11],#软座票价
+            '\n'.join([trains_info_values[12],  response_price_info['A1']]) if 'A1' in keys_list else trains_info_values[12],#硬座票价
+            '\n'.join([trains_info_values[13],  response_price_info['WZ']]) if 'WZ' in keys_list else trains_info_values[13],#无座票价
             '\n'.join([trains_info_values[14],  ''.join(response_price_info['OT'])]) if 'OT' in keys_list else trains_info_values[14],
+            #其他票价
             train_type
         ])
         #更新价格信息后的车次信息
