@@ -1,9 +1,9 @@
-#coding: utf-8
+# coding: utf-8
 
 """命令行火车票查看器
-
 Usage:
     tickets_query.py <type> <start> <end> <date>
+    tickets_query.py ship new <k>
 
 Options:
     -h,--help   显示帮助菜单
@@ -16,8 +16,8 @@ Example:
     z          直达
     e`         其他
     a          显示全部结果
-    tickets 北京 上海 2016-10-10        #查询北京到上海，出发日期为2016-10-10的火车票
-    tickets gd 成都 南京 2016-10-10    #查询成都到南京，出发日期为2016-10-10的高铁、动车票
+    tickets_query.py a 北京 上海 2016-10-10        #查询北京到上海，出发日期为2016-10-10的全部类型火车票
+    tickets_query.py gd 成都 南京 2016-10-10    #查询成都到南京，出发日期为2016-10-10的高铁、动车票
 """
 import re
 import requests
@@ -26,7 +26,7 @@ from prettytable import PrettyTable
 
 
 def get_mapping():
-    #本函数用于获取火车站名与火车站名代码之间的映射关系
+    # 本函数用于获取火车站名与火车站名代码之间的映射关系
     url = 'https://kyfw.12306.cn/otn/resources/js/framework/station_name.js?station_version=1.9053'
     response = requests.get(url)
     stations = re.findall('[\u4e00-\u9fa5]+\|[A-Z]+', response.text)
@@ -36,35 +36,37 @@ def get_mapping():
 
     return mapping_to_code, mapping_to_name
 
-def trans_console(arguments,mapping_to_code):
-    #本函数用于把命令行中的参数转化为有效信息
+
+def trans_console(arguments, mapping_to_code):
+    # 本函数用于把命令行中的参数转化为有效信息
     type_code_dict = {
-        'a':'全部',
-        'g':'高铁',
-        'd':'动车',
-        't':'特快',
-        'k':'快速',
-        'z':'直达',
-        'e':'其他'
+        'a': '全部',
+        'g': '高铁',
+        'd': '动车',
+        't': '特快',
+        'k': '快速',
+        'z': '直达',
+        'e': '其他'
     }
     type_code = '.'.join(arguments['<type>']).split('.')
-    type_trans = [type_code_dict[i] for i in type_code]     #把车次类型指令转化为中文
-    start_code = mapping_to_code[arguments['<start>']]      #出发站名编码
-    end_code = mapping_to_code[arguments['<end>']]          #终点站名编码
-    date = arguments['<date>']                              #出发时间
+    type_trans = [type_code_dict[i] for i in type_code]  # 把车次类型指令转化为中文
+    start_code = mapping_to_code[arguments['<start>']]  # 出发站名编码
+    end_code = mapping_to_code[arguments['<end>']]  # 终点站名编码
+    date = arguments['<date>']  # 出发时间
     trans_list = [type_trans, start_code, end_code, date]
     return trans_list, type_code_dict
 
+
 def trains_info(mapping_to_name, trans_list, type_code_dict):
     url_tickets_info = ('https://kyfw.12306.cn/otn/leftTicket/query?' \
-          'leftTicketDTO.train_date={}' \
-          '&leftTicketDTO.from_station={}&leftTicketDTO.to_station={}&purpose_codes=ADULT').format(
+                        'leftTicketDTO.train_date={}' \
+                        '&leftTicketDTO.from_station={}&leftTicketDTO.to_station={}&purpose_codes=ADULT').format(
         trans_list[3], trans_list[1], trans_list[2]
     )
-    #提取列车查询页面信息
+    # 提取列车查询页面信息
     response_tickets_info = requests.get(url_tickets_info)
     result = [line.split('|') for line in response_tickets_info.json()['data']['result']]
-    #由于返回的数据格式为非结构化数据所以此处先进行分割处理
+    # 由于返回的数据格式为非结构化数据所以此处先进行分割处理
     trains_info = []
     count = 0
     for trains_available in result:
@@ -95,67 +97,65 @@ def trains_info(mapping_to_name, trans_list, type_code_dict):
                          '&train_date={}'.format(
             trains_available[2], trains_available[16], trains_available[17], trains_available[-2], trans_list[3]
         )
-        #提取票价查询网页信息
+        # 提取票价查询网页信息
 
         response_price_info = requests.get(url_price_info).json()['data']
-        keys_list = response_price_info.keys()      #返回车票价格的网页信息的键值
-        
-        #经过对网页源代码的统计分析，发现火车票信息内隐藏的规律。以下为特定位置对应的车座信息
+        keys_list = response_price_info.keys()  # 返回车票价格的网页信息的键值
+
+        # 经过对网页源代码的统计分析，发现火车票信息内隐藏的规律。以下为特定位置对应的车座信息
         trains_info_values = [
-            trains_available[3], #车次
-            '\n'.join([mapping_to_name[trains_available[6]], mapping_to_name[trains_available[7]]]), #出发及到达车站
-            '\n'.join([trains_available[8], trains_available[9]]),                                   #出发及到达时间
-            trains_available[10],                                                                    #历时
-            trains_available[-5] or trains_available[25],                                            #商务座/特等座剩余数量
-            trains_available[-6],                                                                    #一等座剩余数量
-            trains_available[-7],                                                                    #二等座剩余数量
-            trains_available[21],                                                                    #高级软卧剩余数量
-            trains_available[23],                                                                    #软卧剩余数量
-            trains_available[-4],                                                                    #动卧剩余数量
-            trains_available[28],                                                                    #硬卧剩余数量
-            trains_available[24],                                                                    #软座剩余数量
-            trains_available[29],                                                                    #硬座剩余数量
-            trains_available[26],                                                                    #无座剩余数量
-            trains_available[22],                                                                    #其它剩余数量
-            train_type                                                                               #车次类型
+            trains_available[3],  # 车次
+            '\n'.join([mapping_to_name[trains_available[6]], mapping_to_name[trains_available[7]]]),  # 出发及到达车站
+            '\n'.join([trains_available[8], trains_available[9]]),  # 出发及到达时间
+            trains_available[10],  # 历时
+            trains_available[-5] or trains_available[25],  # 商务座/特等座剩余数量
+            trains_available[-6],  # 一等座剩余数量
+            trains_available[-7],  # 二等座剩余数量
+            trains_available[21],  # 高级软卧剩余数量
+            trains_available[23],  # 软卧剩余数量
+            trains_available[-4],  # 动卧剩余数量
+            trains_available[28],  # 硬卧剩余数量
+            trains_available[24],  # 软座剩余数量
+            trains_available[29],  # 硬座剩余数量
+            trains_available[26],  # 无座剩余数量
+            trains_available[22],  # 其它剩余数量
+            train_type  # 车次类型
         ]
 
         for i in range(len(trains_info_values)):
             if trains_info_values[i] == '':
-                trains_info_values[i] = '--'    #对空白信息的填补
+                trains_info_values[i] = '--'  # 对空白信息的填补
         if 'P' in keys_list and not 'A9' in keys_list:
-            trains_info_values[4] = '\n'.join([trains_info_values[4],  response_price_info['P']])
+            trains_info_values[4] = '\n'.join([trains_info_values[4], response_price_info['P']])
         elif 'A9' in keys_list and not 'P' in keys_list:
-            trains_info_values[4] = '\n'.join([trains_info_values[4],  response_price_info['A9']])      
-            #在商务座/特等座一栏包含两个键，因此这里预先进行判断提取价格信息
+            trains_info_values[4] = '\n'.join([trains_info_values[4], response_price_info['A9']])
+            # 在商务座/特等座一栏包含两个键，因此这里预先进行判断提取价格信息
 
         trains_info.append([
             trains_info_values[0],
             trains_info_values[1],
             trains_info_values[2],
             trains_info_values[3],
-            trains_info_values[4],      #商务座/特等座票价
-            #以下分别为不同座位的剩余座位数以及对应的票价。由于对应座位不一定有价格信息，所以此处做了特殊处理
-            '\n'.join([trains_info_values[5],  response_price_info['M']]) if 'M' in keys_list else trains_info_values[5],   #一等座票价
-            '\n'.join([trains_info_values[6],  response_price_info['O']]) if 'O' in keys_list else trains_info_values[6],   #二等座票价
-            '\n'.join([trains_info_values[7],  response_price_info['A6']]) if 'A6' in keys_list else trains_info_values[7], #高级软卧票价
-            '\n'.join([trains_info_values[8],  response_price_info['A4']]) if 'A4' in keys_list else trains_info_values[8], #软卧票价
-            '\n'.join([trains_info_values[9],  response_price_info['F']]) if 'F' in keys_list else trains_info_values[9],   #动卧票价
-            '\n'.join([trains_info_values[10],  response_price_info['A3']]) if 'A3' in keys_list else trains_info_values[10],#硬卧票价
-            '\n'.join([trains_info_values[11],  response_price_info['A2']]) if 'A2' in keys_list else trains_info_values[11],#软座票价
-            '\n'.join([trains_info_values[12],  response_price_info['A1']]) if 'A1' in keys_list else trains_info_values[12],#硬座票价
-            '\n'.join([trains_info_values[13],  response_price_info['WZ']]) if 'WZ' in keys_list else trains_info_values[13],#无座票价
-            '\n'.join([trains_info_values[14],  ''.join(response_price_info['OT'])]) if 'OT' in keys_list else trains_info_values[14],
-            #其他票价
+            trains_info_values[4],  # 商务座/特等座票价
+            # 以下分别为不同座位的剩余座位数以及对应的票价。由于对应座位不一定有价格信息，所以此处做了特殊处理
+            '\n'.join([trains_info_values[5], response_price_info['M']]) if 'M' in keys_list else trains_info_values[5],    # 一等座票价
+            '\n'.join([trains_info_values[6], response_price_info['O']]) if 'O' in keys_list else trains_info_values[6],    # 二等座票价
+            '\n'.join([trains_info_values[7], response_price_info['A6']]) if 'A6' in keys_list else trains_info_values[7],  # 高级软卧票价
+            '\n'.join([trains_info_values[8], response_price_info['A4']]) if 'A4' in keys_list else trains_info_values[8],  # 软卧票价
+            '\n'.join([trains_info_values[9], response_price_info['F']]) if 'F' in keys_list else trains_info_values[9],    # 动卧票价
+            '\n'.join([trains_info_values[10], response_price_info['A3']]) if 'A3' in keys_list else trains_info_values[10],# 硬卧票价
+            '\n'.join([trains_info_values[11], response_price_info['A2']]) if 'A2' in keys_list else trains_info_values[11],# 软座票价
+            '\n'.join([trains_info_values[12], response_price_info['A1']]) if 'A1' in keys_list else trains_info_values[12],# 硬座票价
+            '\n'.join([trains_info_values[13], response_price_info['WZ']]) if 'WZ' in keys_list else trains_info_values[13],# 无座票价
+            '\n'.join([trains_info_values[14], ''.join(response_price_info['OT'])]) if 'OT' in keys_list else trains_info_values[14],
+            # 其他票价
             train_type
         ])
-        #更新价格信息后的车次信息
-
-
+        # 更新价格信息后的车次信息
     return trains_info
 
 def pretty_print(trains_info, header):
-    #打印函数
+    # 打印函数
     pt = PrettyTable()
     pt._set_field_names(header)
     for train in trains_info:
@@ -166,11 +166,12 @@ def pretty_print(trains_info, header):
 def main():
     arguments = docopt(__doc__)
     header = '车次 车站 时间 历时 商务/特等 一等 二等 高级软卧 软卧 动卧 硬卧 软座 硬座 无座 其他 车次类型'.split()
-    mapping_to_code, mapping_to_name = get_mapping()
-    trans_list,type_code_dict = trans_console(arguments,mapping_to_code)
-    trains = trains_info(mapping_to_name, trans_list,type_code_dict)
+    mapping_to_code, mapping_to_name = get_mapping()        #获取火车编码与地名双向映射字典
+    trans_list, type_code_dict = trans_console(arguments, mapping_to_code)  #获取转化后的命令行指令信息
+    trains = trains_info(mapping_to_name, trans_list, type_code_dict)       #获取整合之后的火车信息
     print('共计符合搜索条件 %d 个车次' % len(trains))
     pretty_print(trains, header)
 
 if __name__ == '__main__':
     main()
+
